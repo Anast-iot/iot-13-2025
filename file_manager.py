@@ -9,7 +9,7 @@ class FileCorruptedError(Exception):
     def __init__(self, filepath, reason=""):
         self.filepath = filepath
         self.reason = reason
-        message = f"Файл пошкоджено: {filepath}"
+        message = f"The file is corrupted: {filepath}"
         if reason:
             message += f" ({reason})"
         super().__init__(message)
@@ -34,17 +34,17 @@ def logged(exception_type, mode="console"):
             logger.addHandler(handler)
 
             try:
-                logger.info(f"Виконання операції: {func.__name__}")
+                logger.info(f"Performing the operation: {func.__name__}")
                 result = func(*args, **kwargs)
-                logger.info(f"Операція успішно завершена")
+                logger.info(f"The operation was completed successfully")
                 return result
 
             except exception_type as e:
-                logger.error(f"Виняток {exception_type.__name__}: {str(e)}")
+                logger.error(f"An exception {exception_type.__name__}: {str(e)}")
                 raise
 
             except Exception as e:
-                logger.error(f"Несподіваний виняток {type(e).__name__}: {str(e)}")
+                logger.error(f"An unexpected incident {type(e).__name__}: {str(e)}")
                 raise
 
             finally:
@@ -60,9 +60,9 @@ class YAMLFileHandler:
     def __init__(self, filepath: str):
         self.filepath = filepath
 
-        # ▶ AUTOMATIC FILE CREATION ◀
+        # AUTOMATIC FILE CREATION 
         if not os.path.exists(self.filepath):
-            print(f"Файл не знайдено — створюю новий: {self.filepath}")
+            print(f"File not found - creating a new one: {self.filepath}")
             with open(self.filepath, "w", encoding="utf-8") as f:
                 yaml.dump({}, f, allow_unicode=True)
 
@@ -74,10 +74,10 @@ class YAMLFileHandler:
                 return data if data is not None else {}
 
         except yaml.YAMLError as e:
-            raise FileCorruptedError(self.filepath, f"Помилка YAML: {e}")
+            raise FileCorruptedError(self.filepath, f"Error YAML: {e}")
 
         except Exception as e:
-            raise FileCorruptedError(self.filepath, f"Помилка читання: {e}")
+            raise FileCorruptedError(self.filepath, f"Read error: {e}")
 
     @logged(FileCorruptedError, mode="file")
     def write(self, data: Dict[str, Any]) -> None:
@@ -86,47 +86,54 @@ class YAMLFileHandler:
                 yaml.dump(data, file, allow_unicode=True)
 
         except Exception as e:
-            raise FileCorruptedError(self.filepath, f"Помилка запису: {e}")
+            raise FileCorruptedError(self.filepath, f"Write error: {e}")
 
     @logged(FileCorruptedError, mode="file")
     def append(self, data: Dict[str, Any]) -> None:
         try:
+            if not isinstance(data, dict):
+                self.write(data)
+                return
+        
             existing = self.read()
 
-            if isinstance(existing, dict) and isinstance(data, dict):
+            if existing is None:
+                self.write(data)
+                return
+
+            if isinstance(existing, dict):
                 existing.update(data)
+                self.write(existing)
             else:
-                existing = data
-
-            self.write(existing)
-
+                raise FileCorruptedError(
+                    f"Existing data is of wrong type ({type(existing).__name__}), expected dict."
+            )
         except Exception as e:
-            raise FileCorruptedError(self.filepath, f"Помилка дописування: {e}")
-
+            raise FileCorruptedError(self.filepath, f"Posting error: {e}")
 
 def main():
     test_file = "test_data.yaml"
 
-    print("\n--- Тест 1: Створення/перевірка файлу ---")
+    print("\n--- Тест 1: Create/verify file ---")
     handler = YAMLFileHandler(test_file)
 
-    print("\n--- Тест 2: Початковий вміст ---")
+    print("\n--- Тест 2: Initial content ---")
     print(handler.read())
 
-    print("\n--- Тест 3: Запис даних ---")
+    print("\n--- Тест 3: Data recording ---")
     handler.write({
-        "name": "Іван Петренко",
+        "name": "Ivan Petrenko",
         "age": 20,
-        "university": "НУЛП",
-        "subjects": ["Математика", "Історія", "Фізика"]
+        "university": "NULP",
+        "subjects": ["Math, History, Phisics"]
     })
     print(handler.read())
 
-    print("\n--- Тест 4: Дописування даних ---")
+    print("\n--- Тест 4: Adding data ---")
     handler.append({"semester": 2, "grade": "A"})
     print(handler.read())
 
-    print("\n--- Тест 5: Пошкоджений файл YAML ---")
+    print("\n--- Тест 5: Corrupted YAML file ---")
     corrupted = "corrupted.yaml"
     with open(corrupted, "w", encoding="utf-8") as f:
         f.write("invalid: : yaml: broken::: text")
@@ -135,14 +142,14 @@ def main():
         bad = YAMLFileHandler(corrupted)
         bad.read()
     except FileCorruptedError as e:
-        print("Спіймано:", e)
+        print("Сaught:", e)
 
-    print("\n--- Очищення ---")
+    print("\n--- Cleaning ---")
     os.remove(test_file)
     os.remove(corrupted)
-    print("Файли видалено.")
+    print("Files deleted.")
 
-    print("\nПеревірте operations.log для логів.")
+    print("\n Check operations.log for logs.")
 
 
 if __name__ == "__main__":
