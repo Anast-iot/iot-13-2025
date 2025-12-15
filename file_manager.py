@@ -106,6 +106,7 @@ class YAMLFileHandler:
                 self.write(existing)
             else:
                 raise FileCorruptedError(
+                    self.filepath,
                     f"Existing data is of wrong type ({type(existing).__name__}), expected dict."
             )
         except Exception as e:
